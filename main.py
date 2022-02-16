@@ -1,6 +1,5 @@
 import argparse
 
-from simplejson import load
 
 from model import *
 
@@ -21,7 +20,9 @@ def create_arg_parser():
 if __name__ == "__main__":
     args = create_arg_parser()
 
-    X_train, y_train, X_test, y_test = load_data("./data/train.json", "./data/test.json")
+    X_train, y_train, X_test, y_test = load_data(
+        "./data/train.json", "./data/test.json"
+    )
 
     if args.model_name == "af":
         test_afinn_model(X_train, y_train, X_test, y_test)
@@ -37,5 +38,3 @@ if __name__ == "__main__":
 
     else:
         train_test_distilbert(X_train, y_train, X_test, y_test)
-
-    

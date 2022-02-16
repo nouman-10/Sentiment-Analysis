@@ -1,5 +1,5 @@
 numpy
-scikit-learn
+scikit - learn
 tensorflow
 transformers
 nltk
