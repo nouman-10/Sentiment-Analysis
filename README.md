@@ -20,6 +20,7 @@ Data Resources:
 - Sentiment140: https://www.kaggle.com/kazanova/sentiment140
 - IMDB: https://www.kaggle.com/lakshmi25npathi/imdb-dataset-of-50k-movie-reviews
 - Amazon: https://nijianmo.github.io/amazon/index.html (Specific 5-core: fashion, beauty, appliances, gift cards, industrial, scientific, luxury beauty, magazine subscriptions, and software)
+
 Various Machine Learning and Deep Learning algorithms are compared such as Logistic regression, Support Vector Machines, Naive Bayes, and BERT. 
 ## File Descriptions <a name="files"></a>
 
