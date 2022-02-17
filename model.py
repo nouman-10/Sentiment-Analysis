@@ -57,6 +57,51 @@ def get_scores(y_test, Y_pred, model_name):
     print_scores(recall, "Recall", ["pos", "neg"])
 
 
+def get_callbacks(epochs):
+    """Create the early stopping and learning rate scheduler callbacks"""
+    early_stopping = tf.keras.callbacks.EarlyStopping(
+        monitor="val_loss", patience=int(epochs // 5)
+    )
+    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
+        monitor="val_loss",
+        factor=0.1,
+        patience=int(epochs // 8),
+        verbose=0,
+        mode="auto",
+        min_delta=0.001,
+        cooldown=0,
+        min_lr=0.00000001,
+    )
+
+    return [early_stopping, reduce_lr]
+
+
+def read_embeddings(embeddings_file):
+    """Read in word embeddings from file and save as numpy array"""
+    embeddings = open(embeddings_file, "r", encoding="utf-8").read()
+    return {
+        line.split()[0]: np.array(line.split()[1:], dtype=float)
+        for line in embeddings.split("\n")[:-1]
+    }
+
+
+def get_emb_matrix(voc, emb):
+    """Get embedding matrix given vocab and the embeddings"""
+    num_tokens = len(voc) + 2
+    word_index = dict(zip(voc, range(len(voc))))
+    # Bit hacky, get embedding dimension from the word "the"
+    embedding_dim = len(emb["the"])
+    # Prepare embedding matrix to the correct size
+    embedding_matrix = np.zeros((num_tokens, embedding_dim))
+    for word, i in word_index.items():
+        embedding_vector = emb.get(word)
+        if embedding_vector is not None:
+            # Words not found in embedding index will be all-zeros.
+            embedding_matrix[i] = embedding_vector
+    # Final matrix with pretrained embeddings that we can feed to embedding layer
+    return embedding_matrix
+
+
 def test_afinn_model(X, y):
     afinn = Afinn()
     afinn_scores = [afinn.score(review) for review in X]
@@ -96,6 +141,72 @@ def test_base_distilbert(X_test, y_test):
 
     y_pred = ["pos" if pred["label"] == "POSITIVE" else "neg" for pred in preds]
     get_scores(y_test, y_pred, "DistilBERT (not fine-tuned)")
+
+
+def train_test_lstm(X_train, y_train, X_test, y_test):
+    encoder = LabelBinarizer()
+
+    Y_train_bin = encoder.fit_transform(y_train)
+    Y_test_bin = encoder.transform(y_test)
+
+    Y_train_bin = np.hstack((Y_train_bin, 1 - Y_train_bin))
+    Y_test_bin = np.hstack((Y_test_bin, 1 - Y_test_bin))
+
+    embeddings = read_embeddings(f"./data/glove.6B.200d.txt")
+
+    vectorizer = tf.keras.layers.TextVectorization(
+        standardize=None, output_sequence_length=100
+    )
+
+    text_ds = tf.data.Dataset.from_tensor_slices(X_train)
+
+    vectorizer.adapt(text_ds)
+
+    voc = vectorizer.get_vocabulary()
+    emb_matrix = get_emb_matrix(voc, embeddings)
+    X_train_vect = vectorizer(np.array([[s] for s in X_train])).numpy()
+    X_test_vect = vectorizer(np.array([[s] for s in X_test])).numpy()
+
+    model = tf.keras.models.Sequential()
+    model.add(
+        tf.keras.layers.Embedding(
+            len(emb_matrix),
+            200,
+            embeddings_initializer=tf.keras.initializers.Constant(emb_matrix),
+            trainable=False,
+        )
+    )
+
+    model.add(tf.keras.layers.LSTM(units=512, activation="relu"))
+    model.add(tf.keras.layers.Dropout(0.7))
+
+    model.add(tf.keras.layers.Dense(input_dim=200, units=2, activation="softmax"))
+
+    # Compile the model
+    model.compile(
+        loss="categorical_crossentropy",
+        optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+        metrics=["accuracy"],
+    )
+
+    callbacks = get_callbacks(50)
+
+    # Train the model
+    model.fit(
+        X_train_vect,
+        Y_train_bin,
+        batch_size=8,
+        epochs=50,
+        validation_split=0.1,
+        callbacks=callbacks,
+        verbose=1,
+    )
+
+    Y_pred = model.predict(X_test_vect)
+    Y_pred = np.argmax(Y_pred, axis=1)
+    Y_test = np.argmax(Y_test_bin, axis=1)
+
+    get_scores(Y_test, Y_pred, "Best LSTM Model")
 
 
 def train_test_distilbert(X_train, y_train, X_test, y_test):

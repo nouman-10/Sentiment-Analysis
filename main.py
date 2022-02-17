@@ -11,7 +11,7 @@ def create_arg_parser():
         "--model_name",
         default="nb",
         type=str,
-        help="Model to train (af: afinn, nb: naive bayes, lr: logistic regression, svm: support vector machine, bert: distil-bert) (default: cnn)",
+        help="Model to train (af: afinn, nb: naive bayes, lr: logistic regression, svm: support vector machine, lstm: LSTMs, bert: distil-bert) (default: cnn)",
     )
     args = parser.parse_args()
     return args
@@ -35,6 +35,9 @@ if __name__ == "__main__":
 
     elif args.model_name == "nb":
         train_test_naive_bayes(X_train, y_train, X_test, y_test)
+
+    elif args.model_name == "lstm":
+        train_test_lstm(X_train, y_train, X_test, y_test)
 
     else:
         train_test_distilbert(X_train, y_train, X_test, y_test)
